@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -30,14 +31,33 @@ func main() {
 				return
 			}
 			initListener(os.Args[2], os.Args[3], os.Args[4])
+		} else if os.Args[1] == "control" {
+			// This is central controller
+			if len(os.Args) != 4 {
+				log.Println("Need [control] [whenStartClient] [clientDuration]")
+				return
+			}
+			// convert whenStartClient int, clientDuration int
+			whenStartClient, err := strconv.Atoi(os.Args[2])
+			if err != nil {
+				log.Println("Wrong input format: Need [control] [whenStartClient] [clientDuration]")
+				return
+			}
+			clientDuration, err := strconv.Atoi(os.Args[3])
+			if err != nil {
+				log.Println("Wrong input format: Need [control] [whenStartClient] [clientDuration]")
+				return
+			}
+			runCentralController(whenStartClient, clientDuration)
 		} else {
-			log.Println("First argument wrong [captain or client]")
+			log.Println("First argument wrong [control, captain or client]")
 			return
 		}
 		return
+	} else {
+		log.Println("Need [control, captain or client] ... ... ")
+		return
 	}
-	// This is central controller
-	runCentralController()
 }
 
 /////////////////////// (1) Central controller functions ///////////////////////
@@ -48,7 +68,7 @@ type TimeSeries struct {
 	Addr      string
 }
 
-func runCentralController() {
+func runCentralController(whenStartClient int, clientDuration int) {
 	// Capture the signal
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
@@ -76,12 +96,18 @@ func runCentralController() {
 		lastTimeStamp = timeSeries[i].StartTime
 	}
 
+	// Read all client addresses
+	clients := readClientCSV()
+	// Start all clients
+	go runClientController(clients, whenStartClient, clientDuration)
 	// Start sending the start command
 	log.Println("Start the procedure ...")
+	t1 := time.Now()
 	for i := 0; i < len(intervals); i++ {
 		time.Sleep(intervals[i])
 		sendChans[i] <- timeSeries[i].Duration
-		log.Printf("start cmd sent to node %d\n", i)
+		timeElapsed := time.Since(t1)
+		fmt.Print("Timestamp %v: start cmd sent to node %d\n", timeElapsed, i)
 	}
 
 	// Wait for exit command
@@ -100,7 +126,7 @@ func readCsv() ([]TimeSeries, error) {
 		return nil, err
 	}
 
-	addrFile, err := os.Open("./addr.csv")
+	addrFile, err := os.Open("./captain.csv")
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -148,6 +174,66 @@ func startSender(addr string, sendChan chan float64) {
 	if err != nil {
 		log.Println(err)
 		return
+	}
+}
+
+func readClientCSV() []string {
+	// Read all client addresses
+	addresses := make([]string, 0)
+	addrFile, err := os.Open("./client.csv")
+	if err != nil {
+		log.Println(err)
+		os.Exit(0)
+	}
+	addrLines, err := csv.NewReader(addrFile).ReadAll()
+	if err != nil {
+		log.Println(err)
+		os.Exit(0)
+	}
+	for i, line := range addrLines {
+		addresses[i] = line[0]
+	}
+	return addresses
+}
+
+func runClientController(clients []string, start int, duration int) {
+
+	// Wait for start time
+	time.Sleep(time.Duration(start) * time.Second)
+	// Start all clients
+	for i := 0; i < len(clients); i++ {
+		conn, err := net.Dial("tcp", clients[i])
+		if err != nil {
+			log.Println(err)
+			os.Exit(0)
+		}
+		encoder := gob.NewEncoder(conn)
+		defer conn.Close()
+		// Send stat command to this client
+		err = encoder.Encode(1)
+		if err != nil {
+			log.Println(err)
+			os.Exit(0)
+		}
+	}
+
+	// Wait for experiment duration
+	time.Sleep(time.Duration(duration) * time.Second)
+	// Stop all clients
+	for i := 0; i < len(clients); i++ {
+		conn, err := net.Dial("tcp", clients[i])
+		if err != nil {
+			log.Println(err)
+			os.Exit(0)
+		}
+		encoder := gob.NewEncoder(conn)
+		defer conn.Close()
+		// Send stat command to this client
+		err = encoder.Encode(-1)
+		if err != nil {
+			log.Println(err)
+			os.Exit(0)
+		}
 	}
 }
 
@@ -220,33 +306,31 @@ func initClientListener(ip, port, location, tag, topN string) {
 }
 
 func clientHandler(conn net.Conn, ip, port, location, tag, topN string) {
-	for {
-		decoder := gob.NewDecoder(conn)
-		var duration float64
-		err := decoder.Decode(&duration)
+	decoder := gob.NewDecoder(conn)
+	var cmd int
+	err := decoder.Decode(&cmd)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	// Note: cmd here works as start (1) or stop (-1)
+	if cmd > 0 {
+		// This is the start command
+		captainCMD := "docker run --rm armadaumn/objectdetectionclient2.0 " + ip + " " + port + " " + location + " " + tag + " " + topN
+		cmd := exec.Command("/bin/sh", "-c", captainCMD)
+		stdout, err := cmd.Output()
+		log.Println(string(stdout))
 		if err != nil {
 			log.Println(err)
-			return
 		}
-		// Note: duration here only works as start (1) or stop (-1)
-		if duration > 0 {
-			// This is the start command
-			captainCMD := "docker run --rm armadaumn/objectdetectionclient2.0 " + ip + " " + port + " " + location + " " + tag + " " + topN
-			cmd := exec.Command("/bin/sh", "-c", captainCMD)
-			stdout, err := cmd.Output()
-			log.Println(string(stdout))
-			if err != nil {
-				log.Println(err)
-			}
+	} else {
+		// This is the stop command
+		cmd := exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
+		_, err := cmd.Output()
+		if err != nil {
+			log.Println(err)
 		} else {
-			// This is the stop command
-			cmd := exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
-			_, err := cmd.Output()
-			if err != nil {
-				log.Println(err)
-			} else {
-				log.Println("Client is stopped")
-			}
+			log.Println("Client is stopped")
 		}
 	}
 }
