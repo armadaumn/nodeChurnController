@@ -190,8 +190,8 @@ func readClientCSV() []string {
 		log.Println(err)
 		os.Exit(0)
 	}
-	for i, line := range addrLines {
-		addresses[i] = line[0]
+	for i := range addrLines {
+		addresses[i] = addrLines[i][0]
 	}
 	return addresses
 }
