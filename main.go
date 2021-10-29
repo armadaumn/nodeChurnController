@@ -107,7 +107,7 @@ func runCentralController(whenStartClient int, clientDuration int) {
 		time.Sleep(intervals[i])
 		sendChans[i] <- timeSeries[i].Duration
 		timeElapsed := time.Since(t1)
-		fmt.Print("Timestamp %v: start cmd sent to node %d\n", timeElapsed, i)
+		fmt.Printf("Timestamp %v: start cmd sent to node %d\n", timeElapsed, i)
 	}
 
 	// Wait for exit command
@@ -215,6 +215,7 @@ func runClientController(clients []string, start int, duration int) {
 			log.Println(err)
 			os.Exit(0)
 		}
+		fmt.Printf("	Client start cmd sent to client %d\n", i)
 	}
 
 	// Wait for experiment duration
@@ -234,6 +235,7 @@ func runClientController(clients []string, start int, duration int) {
 			log.Println(err)
 			os.Exit(0)
 		}
+		fmt.Printf("	Client end cmd sent to client %d\n", i)
 	}
 }
 
@@ -317,12 +319,13 @@ func clientHandler(conn net.Conn, ip, port, location, tag, topN string) {
 	if cmd > 0 {
 		// This is the start command
 		captainCMD := "docker run --rm armadaumn/objectdetectionclient2.0 " + ip + " " + port + " " + location + " " + tag + " " + topN + " &> log"
-		cmd := exec.Command("/bin/sh", "-c", captainCMD)
-		stdout, err := cmd.Output()
-		log.Println(string(stdout))
-		if err != nil {
-			log.Println(err)
-		}
+		exec.Command("/bin/sh", "-c", captainCMD)
+		// stdout, err := cmd.Output()
+		// log.Println(string(stdout))
+		// if err != nil {
+		// 	log.Println(err)
+		// }
+		log.Println("Client started")
 	} else {
 		// This is the stop command
 		cmd := exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
