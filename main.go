@@ -317,15 +317,15 @@ func clientHandler(conn net.Conn, ip, port, location, tag, topN string) {
 	}
 	// Note: cmd here works as start (1) or stop (-1)
 	if cmd > 0 {
+		log.Println("Client start cmd received")
 		// This is the start command
 		captainCMD := "docker run --rm armadaumn/objectdetectionclient2.0 " + ip + " " + port + " " + location + " " + tag + " " + topN + " &> log"
-		exec.Command("/bin/sh", "-c", captainCMD)
-		// stdout, err := cmd.Output()
-		// log.Println(string(stdout))
+		cmd := exec.Command("/bin/sh", "-c", captainCMD)
+		cmd.Output()
+		// _, err := cmd.Output()
 		// if err != nil {
 		// 	log.Println(err)
 		// }
-		log.Println("Client started")
 	} else {
 		// This is the stop command
 		cmd := exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
