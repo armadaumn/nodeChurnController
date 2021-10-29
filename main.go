@@ -192,7 +192,7 @@ func readClientCSV() []string {
 	}
 	fmt.Println(addrLines)
 	for i := 0; i < len(addrLines); i++ {
-		addresses[i] = addrLines[i][0]
+		addresses = append(addresses, addrLines[i][0])
 	}
 	return addresses
 }
