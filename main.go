@@ -19,11 +19,11 @@ func main() {
 	if len(os.Args) > 1 {
 		if os.Args[1] == "client" {
 			// Listen on Client operation
-			if len(os.Args) != 7 {
-				log.Println("Need [client] [appManager IP] [appManager port] [location] [tag] [TopN]")
+			if len(os.Args) != 8 {
+				log.Println("Need [client] [appManager IP] [appManager port] [location] [tag] [TopN] [outputFileName]")
 				return
 			}
-			initClientListener(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6])
+			initClientListener(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], os.Args[7])
 		} else if os.Args[1] == "captain" {
 			// Listen on Captain operation
 			if len(os.Args) != 5 {
@@ -293,7 +293,7 @@ func recv(conn net.Conn, spinnerURL string, loc string, ip string) {
 
 /////////////////////// (3) Client controller functions ///////////////////////
 
-func initClientListener(ip, port, location, tag, topN string) {
+func initClientListener(ip, port, location, tag, topN, logName string) {
 	listener, err := net.Listen("tcp", ":8001")
 	if err != nil {
 		log.Println(err)
@@ -303,11 +303,11 @@ func initClientListener(ip, port, location, tag, topN string) {
 		if err != nil {
 			log.Println(err)
 		}
-		go clientHandler(conn, ip, port, location, tag, topN)
+		go clientHandler(conn, ip, port, location, tag, topN, logName)
 	}
 }
 
-func clientHandler(conn net.Conn, ip, port, location, tag, topN string) {
+func clientHandler(conn net.Conn, ip, port, location, tag, topN, logName string) {
 	decoder := gob.NewDecoder(conn)
 	var cmd int
 	err := decoder.Decode(&cmd)
@@ -319,7 +319,7 @@ func clientHandler(conn net.Conn, ip, port, location, tag, topN string) {
 	if cmd > 0 {
 		log.Println("Client start cmd received")
 		// This is the start command
-		captainCMD := "docker run --rm armadaumn/objectdetectionclient2.0 " + ip + " " + port + " " + location + " " + tag + " " + topN + " &> log"
+		captainCMD := "docker run --rm armadaumn/objectdetectionclient2.0 " + ip + " " + port + " " + location + " " + tag + " " + topN + " &> " + logName
 		cmd := exec.Command("/bin/sh", "-c", captainCMD)
 		cmd.Output()
 		// _, err := cmd.Output()
