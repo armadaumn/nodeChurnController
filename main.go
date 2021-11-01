@@ -196,12 +196,12 @@ func readClientCSV() []string {
 	return addresses
 }
 
-func runClientController(clients []string, start int, duration int) {
+func runClientController(clients []string, period int, duration int) {
 
-	// Wait for start time
-	time.Sleep(time.Duration(start) * time.Second)
 	// Start all clients
 	for i := 0; i < len(clients); i++ {
+		// Every 5 seconds start a client
+		time.Sleep(time.Duration(period) * time.Second)
 		conn, err := net.Dial("tcp", clients[i])
 		if err != nil {
 			log.Println(err)
