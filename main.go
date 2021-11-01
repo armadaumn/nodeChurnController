@@ -102,13 +102,15 @@ func runCentralController(whenStartClient int, clientDuration int) {
 	go runClientController(clients, whenStartClient, clientDuration)
 	// Start sending the start command
 	log.Println("Start the procedure ...")
-	t1 := time.Now()
-	for i := 0; i < len(intervals); i++ {
-		time.Sleep(intervals[i])
-		sendChans[i] <- timeSeries[i].Duration
-		timeElapsed := time.Since(t1)
-		fmt.Printf("Timestamp %v: start cmd sent to node %d\n", timeElapsed, i)
-	}
+	go func() {
+		t1 := time.Now()
+		for i := 0; i < len(intervals); i++ {
+			time.Sleep(intervals[i])
+			sendChans[i] <- timeSeries[i].Duration
+			timeElapsed := time.Since(t1)
+			fmt.Printf("Timestamp %v: start cmd sent to node %d\n", timeElapsed, i)
+		}
+	}()
 
 	// Wait for exit command
 	<-signalChan
