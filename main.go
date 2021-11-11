@@ -276,16 +276,9 @@ func recv(conn net.Conn, spinnerURL string, loc string, ip string, logName strin
 		}
 		// Wait for the given lifetime and stop the captain
 		time.Sleep(time.Duration(duration) * time.Second)
-		cmd = exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
-		_, err = cmd.Output()
-		if err != nil {
-			log.Println(err)
-		} else {
-			log.Println("Containers are removed")
-		}
-	} else {
+
 		// Before killing the current captain and task containers, store the log of task
-		cmd := exec.Command("/bin/sh", "-c", "docker ps -q")
+		cmd = exec.Command("/bin/sh", "-c", "docker ps -q")
 		output, err := cmd.Output()
 		if err != nil {
 			log.Println("Error in forwarding task log")
@@ -302,6 +295,14 @@ func recv(conn net.Conn, spinnerURL string, loc string, ip string, logName strin
 		}
 
 		cmd = exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
+		_, err = cmd.Output()
+		if err != nil {
+			log.Println(err)
+		} else {
+			log.Println("Containers are removed")
+		}
+	} else {
+		cmd := exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
 		_, err = cmd.Output()
 		if err != nil {
 			log.Println(err)
