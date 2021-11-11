@@ -27,7 +27,7 @@ func main() {
 			initClientListener(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], os.Args[7])
 		} else if os.Args[1] == "captain" {
 			// Listen on Captain operation
-			if len(os.Args) != 5 {
+			if len(os.Args) != 6 {
 				log.Println("Need [captain] [spinnerIp:port] [location] [self ip] [logFileName]")
 				return
 			}
