@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -27,10 +28,10 @@ func main() {
 		} else if os.Args[1] == "captain" {
 			// Listen on Captain operation
 			if len(os.Args) != 5 {
-				log.Println("Need [captain] [spinnerIp:port] [location] [self ip]")
+				log.Println("Need [captain] [spinnerIp:port] [location] [self ip] [logFileName]")
 				return
 			}
-			initListener(os.Args[2], os.Args[3], os.Args[4])
+			initListener(os.Args[2], os.Args[3], os.Args[4], os.Args[5])
 		} else if os.Args[1] == "control" {
 			// This is central controller
 			if len(os.Args) != 4 {
@@ -243,7 +244,7 @@ func runClientController(clients []string, start int, duration int) {
 
 /////////////////////// (2) Captain controller functions ///////////////////////
 
-func initListener(spinnerURL string, loc string, ip string) {
+func initListener(spinnerURL string, loc string, ip string, logName string) {
 	listener, err := net.Listen("tcp", ":8000")
 	if err != nil {
 		log.Println(err)
@@ -253,11 +254,11 @@ func initListener(spinnerURL string, loc string, ip string) {
 		if err != nil {
 			log.Println(err)
 		}
-		go recv(conn, spinnerURL, loc, ip)
+		go recv(conn, spinnerURL, loc, ip, logName)
 	}
 }
 
-func recv(conn net.Conn, spinnerURL string, loc string, ip string) {
+func recv(conn net.Conn, spinnerURL string, loc string, ip string, logName string) {
 	decoder := gob.NewDecoder(conn)
 	var duration float64
 	err := decoder.Decode(&duration)
@@ -283,8 +284,25 @@ func recv(conn net.Conn, spinnerURL string, loc string, ip string) {
 			log.Println("Containers are removed")
 		}
 	} else {
-		cmd := exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
-		_, err := cmd.Output()
+		// Before killing the current captain and task containers, store the log of task
+		cmd := exec.Command("/bin/sh", "-c", "docker ps -q")
+		output, err := cmd.Output()
+		if err != nil {
+			log.Println("Error in forwarding task log")
+			os.Exit(0)
+		}
+
+		list := strings.Split(string(output), "\n")
+
+		cmd = exec.Command("/bin/sh", "-c", "docker logs "+list[0]+" &> "+logName)
+		_, err = cmd.Output()
+		if err != nil {
+			log.Println("Error in forwarding task log")
+			os.Exit(0)
+		}
+
+		cmd = exec.Command("/bin/sh", "-c", "docker kill $(docker ps -q)")
+		_, err = cmd.Output()
 		if err != nil {
 			log.Println(err)
 		} else {
